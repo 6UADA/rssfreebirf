@@ -635,7 +635,6 @@
     }
 }
 
-/* Responsividad */
 @media (max-width: 782px) {
     .flux-form-grid {
         grid-template-columns: 1fr;
@@ -658,4 +657,30 @@
     .flux-title::after {
         right: -20px;
     }
+}
+
+/* Collapsible section styles */
+.flux-collapsible-content {
+    max-height: 2000px;
+    overflow: hidden;
+    transition: max-height 0.5s cubic-bezier(0, 1, 0, 1);
+}
+
+.flux-card.collapsed .flux-collapsible-content {
+    max-height: 0;
+    transition: max-height 0.5s cubic-bezier(0.5, 0, 1, 0);
+}
+
+.flux-toggle-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--primary);
+    padding: 5px;
+    margin-left: auto;
+    transition: transform 0.3s ease;
+}
+
+.flux-card.collapsed .flux-toggle-btn {
+    transform: rotate(-90deg);
 }

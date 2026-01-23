@@ -169,6 +169,13 @@ function rss_admin_extractor_ejecutar_tarea($tarea)
             update_post_meta($post_id, '_source_authors', sanitize_text_field($n['autores']));
         }
 
+        if (!empty($tarea->periodico)) {
+            update_post_meta($post_id, '_source_newspaper', sanitize_text_field($tarea->periodico));
+        }
+        if (!empty($tarea->tipo_nota)) {
+            update_post_meta($post_id, '_source_note_type', sanitize_text_field($tarea->tipo_nota));
+        }
+
         if (!empty($n['imagen_url'])) {
             asignar_imagen_destacada(esc_url_raw($n['imagen_url']), $post_id);
         }
