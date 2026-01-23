@@ -5,6 +5,7 @@ function rss_admin_extractor_ejecutar_tarea($tarea)
     $limite = max(0, intval($tarea->rss_limit)); // límite definido en el formulario
 
     // 1) Descargar el XML
+    // comentario de prueba
     $resp = wp_remote_get($feed_url, [
         'timeout' => 25,
         'headers' => ['Accept' => 'application/xml,text/xml,*/*;q=0.9'],
