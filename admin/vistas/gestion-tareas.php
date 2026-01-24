@@ -19,6 +19,8 @@
             <h2 class="flux-card-title">Configurar Extracción</h2>
         </div>
         <form method="post">
+            <?php wp_nonce_field('rss_nueva_tarea_nonce'); ?>
+
             <div class="flux-form-grid">
                 <div class="flux-form-field">
                     <label for="nombre_tarea">Nombre de la tarea</label>

@@ -1,206 +1,129 @@
 <?php
+defined('ABSPATH') || exit;
+
 function rss_admin_extractor_ejecutar_tarea($tarea)
 {
     $feed_url = esc_url_raw($tarea->rss_url);
-    $limite = max(0, intval($tarea->rss_limit)); // límite definido en el formulario
+    $limite = max(0, intval($tarea->rss_limit));
 
-    // 1) Descargar el XML
-    // comentario de prueba
+    // 1) Descargar XML
     $resp = wp_remote_get($feed_url, [
         'timeout' => 25,
         'headers' => ['Accept' => 'application/xml,text/xml,*/*;q=0.9'],
     ]);
     if (is_wp_error($resp)) {
-        echo "<pre>Error al descargar XML: " . $resp->get_error_message() . "</pre>";
-        return;
-    }
-    $body = wp_remote_retrieve_body($resp);
-    if (!$body) {
-        echo "<pre>XML vacío en la URL: $feed_url</pre>";
-        return;
+        error_log("RSS ERROR: " . $resp->get_error_message());
+        return "Error: " . $resp->get_error_message();
     }
 
-    // 2) Parsear XML
+    require_once plugin_dir_path(__FILE__) . '../includes/ollama.php';
+    require_once plugin_dir_path(__FILE__) . '../includes/imagen.php';
+
+    $body = wp_remote_retrieve_body($resp);
+    if (!$body)
+        return "Error: Cuerpo de respuesta vacío.";
+
     libxml_use_internal_errors(true);
     $xml = simplexml_load_string($body);
     if ($xml === false) {
-        echo "<pre>Error al parsear XML desde: $feed_url</pre>";
-        return;
+        error_log("RSS ERROR XML");
+        return "Error: Formato XML inválido.";
     }
 
-    // 3) Localizar nodos <noticia>
+    // 2) Extraer nodos <noticia> o <item> (Soporte básico RSS estándar)
     $items = [];
-    if ($xml->getName() === 'noticia') {
-        $items = [$xml];
-    } elseif (isset($xml->noticia)) {
-        foreach ($xml->noticia as $n)
-            $items[] = $n;
-    } else {
-        foreach ($xml->children() as $child) {
-            if ($child->getName() === 'noticia')
-                $items[] = $child;
-            if (isset($child->noticia)) {
-                foreach ($child->noticia as $n)
-                    $items[] = $n;
-            }
-        }
+    $is_standard_rss = false;
+
+    if ($xml->xpath('//noticia')) {
+        $items = $xml->xpath('//noticia');
+    } elseif ($xml->xpath('//item')) {
+        $items = $xml->xpath('//item');
+        $is_standard_rss = true;
     }
 
-    if (empty($items)) {
-        echo "<pre>No se encontraron nodos <noticia>.</pre>";
-        return;
-    }
+    if (!$items)
+        return "No se encontraron noticias en el feed.";
 
-    // 4) Preprocesar todas las noticias
-    $noticias = [];
-    foreach ($items as $n) {
-        $titulo_original = trim((string) ($n->titulo ?? ''));
-        $contenido_original = (string) ($n->texto ?? '');
-        $imagen_url = trim((string) ($n->imagen_url ?? ''));
-        $url_fuente = trim((string) ($n->url ?? ''));
-        $autores = trim((string) ($n->autores ?? ''));
-
-        $titulo_clean = trim(wp_strip_all_tags($titulo_original));
-        $contenido_clean = trim(wp_strip_all_tags($contenido_original));
-
-        if ($titulo_clean === '' && $contenido_clean === '') {
-            continue;
-        }
-
-        $hash_original = hash('sha256', $titulo_clean . '|' . $contenido_clean);
-
-        $noticias[] = [
-            'titulo_original' => $titulo_original,
-            'contenido_original' => $contenido_original,
-            'titulo_clean' => $titulo_clean,
-            'contenido_clean' => $contenido_clean,
-            'hash_original' => $hash_original,
-            'url_fuente' => $url_fuente,
-            'imagen_url' => $imagen_url,
-            'autores' => $autores,
-        ];
-    }
-
-    if (empty($noticias)) {
-        echo "<pre>No se pudieron mapear noticias válidas.</pre>";
-        return;
-    }
-
-    // 5) Recolectar duplicados en lote
     global $wpdb;
-    $hashes = wp_list_pluck($noticias, 'hash_original');
-    $urls = array_filter(wp_list_pluck($noticias, 'url_fuente'));
 
-    $hashes_sql = $hashes ? "'" . implode("','", array_map('esc_sql', $hashes)) . "'" : "''";
-    $urls_sql = $urls ? "'" . implode("','", array_map('esc_sql', $urls)) . "'" : "''";
-
-    $duplicados = [];
-
-    if ($hashes) {
-        $res = $wpdb->get_col("SELECT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_original_hash' AND meta_value IN ($hashes_sql)");
-        $duplicados = array_merge($duplicados, $res);
-    }
-    if ($urls) {
-        $res = $wpdb->get_col("SELECT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_source_url' AND meta_value IN ($urls_sql)");
-        $duplicados = array_merge($duplicados, $res);
-    }
-
-    $duplicados = array_unique($duplicados);
-
-
-    $contador = 0;
     $importados = 0;
     $saltados = 0;
-    $procesados = 0;
 
-    foreach ($noticias as $n) {
-        $contador++;
+    foreach ($items as $n) {
 
-
-        // 👉 respetar el límite de NOTICIAS INSERTADAS
-        if ($limite > 0 && $importados >= $limite) {
+        if ($limite > 0 && $importados >= $limite)
             break;
+
+        if ($is_standard_rss) {
+            $titulo_original = trim((string) ($n->title ?? ''));
+            $contenido_original = trim((string) ($n->description ?? $n->children('content', true)->encoded ?? ''));
+            $imagen_url = '';
+            $url_fuente = trim((string) ($n->link ?? ''));
+            $autores = '';
+        } else {
+            $titulo_original = trim((string) ($n->titulo ?? ''));
+            $contenido_original = trim((string) ($n->texto ?? ''));
+            $imagen_url = trim((string) ($n->imagen_url ?? ''));
+            $url_fuente = trim((string) ($n->url ?? ''));
+            $autores = trim((string) ($n->autores ?? ''));
         }
 
-        if (in_array($n['hash_original'], $duplicados) || ($n['url_fuente'] && in_array($n['url_fuente'], $duplicados))) {
-            echo "<pre>Saltado duplicado: {$n['titulo_clean']}</pre>";
+        if (!$titulo_original || !$contenido_original)
+            continue;
+
+        $hash = hash('sha256', $titulo_original . '|' . $contenido_original);
+
+        // duplicados
+        $ya = $wpdb->get_var($wpdb->prepare(
+            "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_original_hash' AND meta_value = %s LIMIT 1",
+            $hash
+        ));
+
+        if ($ya) {
             $saltados++;
-
-
             continue;
         }
 
-        // Reescrituras opcionales
+        // 🔥 REESCRITURA REAL
+        error_log("[RSS RUNNER] Iniciando reescritura para: " . substr($titulo_original, 0, 40));
+
         $titulo = function_exists('reescribir_titulo_con_ollama')
-            ? reescribir_titulo_con_ollama($n['titulo_original'])
-            : $n['titulo_original'];
+            ? reescribir_titulo_con_ollama($titulo_original)
+            : $titulo_original;
 
-        $contenido = function_exists('reescribir_contenido_con_ollama')
-            ? reescribir_contenido_con_ollama($n['contenido_original'])
-            : $n['contenido_original'];
+        if (function_exists('reescribir_contenido_con_ollama')) {
+            $contenido = reescribir_contenido_con_ollama($contenido_original);
+        } else {
+            $contenido = $contenido_original;
+        }
 
-        $titulo = wp_strip_all_tags($titulo);
-        $contenido = wp_kses_post($contenido);
-
-
-
-        $post_data = [
-            'post_title' => $titulo ?: '(Sin título)',
-            'post_content' => $contenido,
+        // Insertar post
+        $post_id = wp_insert_post([
+            'post_title' => wp_strip_all_tags($titulo),
+            'post_content' => wp_kses_post($contenido),
             'post_status' => $tarea->rss_post_status,
             'post_category' => [intval($tarea->rss_category_id)],
-            'post_author' => intval($tarea->rss_author_id), // Asignar el autor seleccionado
-        ];
+            'post_author' => intval($tarea->rss_author_id),
+        ], true);
 
-        $post_id = wp_insert_post($post_data, true);
-        if (is_wp_error($post_id) || !$post_id) {
-            echo "<pre>Error insertando: {$n['titulo_clean']}</pre>";
-
-            $procesados++;
+        if (is_wp_error($post_id))
             continue;
-        }
 
-        if ($n['url_fuente']) {
-            update_post_meta($post_id, '_source_url', esc_url_raw($n['url_fuente']));
-        }
-        update_post_meta($post_id, '_original_hash', $n['hash_original']);
+        update_post_meta($post_id, '_original_hash', $hash);
 
-        if ($n['autores']) {
-            update_post_meta($post_id, '_source_authors', sanitize_text_field($n['autores']));
-        }
+        if ($url_fuente)
+            update_post_meta($post_id, '_source_url', esc_url_raw($url_fuente));
 
-        if (!empty($tarea->periodico)) {
-            update_post_meta($post_id, '_source_newspaper', sanitize_text_field($tarea->periodico));
-        }
-        if (!empty($tarea->tipo_nota)) {
-            update_post_meta($post_id, '_source_note_type', sanitize_text_field($tarea->tipo_nota));
-        }
+        if ($autores)
+            update_post_meta($post_id, '_source_authors', sanitize_text_field($autores));
 
-        if (!empty($n['imagen_url'])) {
-            asignar_imagen_destacada(esc_url_raw($n['imagen_url']), $post_id);
-        }
+        if ($imagen_url)
+            asignar_imagen_destacada(esc_url_raw($imagen_url), $post_id);
 
-        echo "<pre>Insertado post ID $post_id: {$n['titulo_clean']}</pre>";
         $importados++;
-        $procesados++;
-
-
     }
 
-    echo "<pre>Importados: $importados, Duplicados ignorados: $saltados</pre>";
-}
-
-/**
- * Une errores de SimpleXML para mensaje legible
- */
-function collect_simplexml_errors()
-{
-    $errs = libxml_get_errors();
-    libxml_clear_errors();
-    if (!$errs)
-        return 'desconocido';
-    $msgs = array_map(function ($e) {
-        return trim($e->message);
-    }, $errs);
-    return implode('; ', array_unique($msgs));
+    $res = "Finalizado: $importados importados, $saltados saltados.";
+    error_log("RSS RESULTADO: $res");
+    return $res;
 }

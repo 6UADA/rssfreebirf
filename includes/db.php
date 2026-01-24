@@ -1,4 +1,6 @@
 <?php
+defined('ABSPATH') || exit;
+
 function rss_admin_extractor_instalar()
 {
     global $wpdb;

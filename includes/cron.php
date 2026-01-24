@@ -1,9 +1,11 @@
 <?php
+defined('ABSPATH') || exit;
+
 // Agregar intervalo personalizado de 5 minutos (para que el cron corra frecuente)
 add_filter('cron_schedules', function ($schedules) {
     $schedules['cada_5_minutos'] = array(
         'interval' => 300, // 5 minutos = 300 segundos
-        'display'  => 'Cada 5 minutos'
+        'display' => 'Cada 5 minutos'
     );
     return $schedules;
 });
@@ -36,10 +38,17 @@ add_action('rss_admin_extractor_verificar_hora', function () {
     }
 });
 
-// Acción que ejecuta todas las tareas
+// 5) Acción que ejecuta todas las tareas
 add_action('rss_admin_extractor_ejecutar_cron', 'rss_admin_extractor_ejecutar_todas_las_tareas');
 
-function rss_admin_extractor_ejecutar_todas_las_tareas() {
+function rss_admin_extractor_ejecutar_todas_las_tareas()
+{
+    // Evitar ejecuciones duplicadas muy seguidas (bloqueo de 4 min)
+    if (get_transient('rss_ejecutando_cron')) {
+        return;
+    }
+    set_transient('rss_ejecutando_cron', true, 4 * MINUTE_IN_SECONDS);
+
     error_log('[RSS Cron] Iniciando ejecución de tareas programadas');
 
     global $wpdb;
@@ -48,6 +57,7 @@ function rss_admin_extractor_ejecutar_todas_las_tareas() {
 
     if (!$tareas) {
         error_log('[RSS Cron] No se encontraron tareas para ejecutar.');
+        delete_transient('rss_ejecutando_cron');
         return;
     }
 
@@ -59,11 +69,5 @@ function rss_admin_extractor_ejecutar_todas_las_tareas() {
     }
 
     error_log('[RSS Cron] Ejecución completada.');
+    delete_transient('rss_ejecutando_cron');
 }
-
-// Programar evento cron si no está programado
-add_action('wp', function () {
-    if (!wp_next_scheduled('rss_admin_extractor_verificar_hora')) {
-        wp_schedule_event(time(), 'cada_5_minutos', 'rss_admin_extractor_verificar_hora');
-    }
-});

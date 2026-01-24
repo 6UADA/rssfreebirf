@@ -13,7 +13,8 @@
         <h1 class="flux-title">Listado de Tareas</h1>
     </div>
 
-    <!-- Acciones Masivas -->
+    <div id="rss-notifications"></div>
+
     <?php if (!empty($tareas)): ?>
         <div class="flux-card" style="padding: 20px;">
             <div style="display: flex; gap: 15px; justify-content: center;">
@@ -70,8 +71,10 @@
                             <a href="?page=rss-listar-tareas&eliminar=<?= intval($tarea->id) ?>"
                                 onclick="return confirm('¿Eliminar?');"
                                 class="flux-task-button flux-task-button-delete">Eliminar</a>
-                            <a href="?page=rss-listar-tareas&probar=<?= intval($tarea->id) ?>"
-                                class="flux-task-button flux-task-button-run">Probar</a>
+                            <button class="flux-task-button flux-task-button-run rss-run-task"
+                                data-id="<?= intval($tarea->id) ?>">
+                                <span class="dashicons dashicons-controls-play"></span> Probar
+                            </button>
                         </div>
                     </div>
                 <?php endforeach; ?>

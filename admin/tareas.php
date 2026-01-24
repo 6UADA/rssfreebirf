@@ -1,4 +1,6 @@
 <?php
+defined('ABSPATH') || exit;
+
 function rss_admin_extractor_menu()
 {
     // Menú principal
@@ -51,8 +53,41 @@ add_action('admin_enqueue_scripts', function ($hook) {
         'rss_admin_styles',
         plugin_dir_url(__DIR__) . 'assets/css/rss-admin.css',
         [],
-        '1.0'
+        '1.1'
     );
+
+    wp_enqueue_script(
+        'rss_ajax_script',
+        plugin_dir_url(__DIR__) . 'assets/js/rss-ajax.js',
+        ['jquery'],
+        '1.1',
+        true
+    );
+
+    wp_localize_script('rss_ajax_script', 'rss_ajax_obj', [
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('rss_ajax_nonce')
+    ]);
+});
+
+// Ajax Handler
+add_action('wp_ajax_rss_ejecutar_tarea_ajax', function () {
+    check_ajax_referer('rss_ajax_nonce');
+    if (!current_user_can('manage_options'))
+        wp_send_json_error('No autorizado');
+
+    $tarea_id = intval($_POST['tarea_id']);
+    global $wpdb;
+    $tabla = $wpdb->prefix . 'rss_tareas';
+    $tarea = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tabla WHERE id = %d", $tarea_id));
+
+    if (!$tarea)
+        wp_send_json_error('Tarea no encontrada');
+
+    require_once plugin_dir_path(__FILE__) . '../core/rss-runner.php';
+    $resultado = rss_admin_extractor_ejecutar_tarea($tarea);
+
+    wp_send_json_success($resultado);
 });
 
 /**
@@ -65,6 +100,10 @@ function rss_admin_extractor_gestion_tareas()
     $tabla_fuentes = $wpdb->prefix . 'rss_fuentes';
 
     if (isset($_POST['nueva_tarea'])) {
+        check_admin_referer('rss_nueva_tarea_nonce');
+        if (!current_user_can('manage_options'))
+            return;
+
         $fuente_id = intval($_POST['fuente_id']);
         $fuente = $wpdb->get_row($wpdb->prepare("SELECT * FROM $tabla_fuentes WHERE id = %d", $fuente_id));
         if ($fuente) {
@@ -83,6 +122,10 @@ function rss_admin_extractor_gestion_tareas()
     }
 
     if (isset($_POST['guardar_hora_cron'])) {
+        check_admin_referer('rss_nueva_tarea_nonce');
+        if (!current_user_can('manage_options'))
+            return;
+
         update_option('rss_cron_hora', sanitize_text_field($_POST['rss_cron_hora']));
         echo '<div class="flux-notification flux-success"><div class="flux-notification-content"><h4>Hora Guardada</h4></div></div>';
     }

@@ -1,14 +1,18 @@
 <?php
-function asignar_imagen_destacada($imagen_url, $post_id) {
+defined('ABSPATH') || exit;
+
+function asignar_imagen_destacada($imagen_url, $post_id)
+{
     require_once ABSPATH . 'wp-admin/includes/image.php';
     require_once ABSPATH . 'wp-admin/includes/file.php';
     require_once ABSPATH . 'wp-admin/includes/media.php';
 
     $imagen_url = html_entity_decode(trim($imagen_url));
-    if (empty($imagen_url) || empty($post_id)) return false;
+    if (empty($imagen_url) || empty($post_id))
+        return false;
 
     // --- helper: crea nombre con extensión en base a MIME ---
-    $resolver_nombre = function($url, $mime) {
+    $resolver_nombre = function ($url, $mime) {
         $path = parse_url($url, PHP_URL_PATH);
         $base = $path ? basename($path) : 'imagen';
         $base = preg_replace('/\?.*$/', '', $base);
@@ -16,11 +20,11 @@ function asignar_imagen_destacada($imagen_url, $post_id) {
 
         $map = [
             'image/jpeg' => 'jpg',
-            'image/jpg'  => 'jpg',
-            'image/png'  => 'png',
-            'image/gif'  => 'gif',
+            'image/jpg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
             'image/webp' => 'webp',
-            'image/bmp'  => 'bmp',
+            'image/bmp' => 'bmp',
             'image/svg+xml' => 'svg',
         ];
         $ext = isset($map[strtolower($mime)]) ? $map[strtolower($mime)] : null;
@@ -49,12 +53,12 @@ function asignar_imagen_destacada($imagen_url, $post_id) {
     // --- 2) Fallback con wp_remote_get y headers de navegador ---
     if (!$tmp_ok) {
         $args = [
-            'timeout'      => 20,
-            'redirection'  => 5,
-            'headers'      => [
+            'timeout' => 20,
+            'redirection' => 5,
+            'headers' => [
                 'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
-                'Referer'    => home_url('/'),
-                'Accept'     => 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+                'Referer' => home_url('/'),
+                'Accept' => 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
             ],
             // Si el servidor remoto tiene SSL mal configurado, puedes probar:
             // 'sslverify' => false, // No recomendado en producción
@@ -76,7 +80,8 @@ function asignar_imagen_destacada($imagen_url, $post_id) {
 
         // Escribe a un tmp y valida por contenido real
         $tmp = wp_tempnam($imagen_url);
-        if (!$tmp) return false;
+        if (!$tmp)
+            return false;
 
         $bytes = file_put_contents($tmp, $body);
         if ($bytes === false || $bytes === 0) {
@@ -101,7 +106,7 @@ function asignar_imagen_destacada($imagen_url, $post_id) {
     $nombre_archivo = $resolver_nombre($imagen_url, $mime);
 
     $file_array = [
-        'name'     => $nombre_archivo,
+        'name' => $nombre_archivo,
         'tmp_name' => $tmp,
     ];
 
