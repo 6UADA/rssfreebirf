@@ -24,11 +24,13 @@ function reescribir_titulo_con_ollama($titulo)
 
     $body = json_encode([
         'model' => 'llama3',
-        'prompt' => $prompt,
+        'messages' => [
+            ['role' => 'user', 'content' => $prompt]
+        ],
         'stream' => false
     ]);
 
-    $response = wp_remote_post('https://ollama.maxtres.org/ollama', [
+    $response = wp_remote_post('https://lm.maxtres.org/v1/chat/completions', [
         'headers' => ['Content-Type' => 'application/json'],
         'body' => $body,
         'timeout' => OLLAMA_TIMEOUT_TITULO
@@ -40,7 +42,12 @@ function reescribir_titulo_con_ollama($titulo)
     }
 
     $data = json_decode(wp_remote_retrieve_body($response), true);
-    return !empty($data['response']) ? trim($data['response']) : $titulo;
+
+    if (!empty($data['choices'][0]['message']['content'])) {
+        return trim($data['choices'][0]['message']['content']);
+    }
+
+    return $titulo;
 }
 
 /* ===========================
@@ -64,11 +71,13 @@ function reescribir_contenido_con_ollama($contenido)
 
     $body = json_encode([
         'model' => 'llama3',
-        'prompt' => $prompt,
+        'messages' => [
+            ['role' => 'user', 'content' => $prompt]
+        ],
         'stream' => false
     ]);
 
-    $response = wp_remote_post('https://ollama.maxtres.org/ollama', [
+    $response = wp_remote_post('https://lm.maxtres.org/v1/chat/completions', [
         'headers' => ['Content-Type' => 'application/json'],
         'body' => $body,
         'timeout' => OLLAMA_TIMEOUT_CONTENIDO
@@ -80,5 +89,10 @@ function reescribir_contenido_con_ollama($contenido)
     }
 
     $data = json_decode(wp_remote_retrieve_body($response), true);
-    return !empty($data['response']) ? trim($data['response']) : $contenido;
+
+    if (!empty($data['choices'][0]['message']['content'])) {
+        return trim($data['choices'][0]['message']['content']);
+    }
+
+    return $contenido;
 }

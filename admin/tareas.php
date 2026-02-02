@@ -90,6 +90,22 @@ add_action('wp_ajax_rss_ejecutar_tarea_ajax', function () {
     wp_send_json_success($resultado);
 });
 
+// Ajax Handler Paso 2: Contenido
+add_action('wp_ajax_rss_procesar_contenido_ajax', function () {
+    check_ajax_referer('rss_ajax_nonce');
+    if (!current_user_can('manage_options'))
+        wp_send_json_error('No autorizado');
+
+    $post_id = intval($_POST['post_id']);
+    if (!$post_id)
+        wp_send_json_error('ID de post no válido');
+
+    require_once plugin_dir_path(__FILE__) . '../core/rss-runner.php';
+    $resultado = rss_admin_extractor_completar_contenido($post_id);
+
+    wp_send_json_success($resultado);
+});
+
 /**
  * PÁGINA 1: PROGRAMAR TAREA (Formulario)
  */
@@ -157,8 +173,9 @@ function rss_admin_extractor_listado_tareas()
         $tarea = $wpdb->get_row("SELECT * FROM $tabla WHERE id = $id");
         if ($tarea) {
             require_once plugin_dir_path(__FILE__) . '../core/rss-runner.php';
-            $resultado = rss_admin_extractor_ejecutar_tarea($tarea);
-            echo '<div class="flux-notification flux-info"><div class="flux-notification-content"><h4>Resultado</h4><p>' . esc_html($resultado) . '</p></div></div>';
+            $resultado = rss_admin_extractor_ejecutar_tarea($tarea, true);
+            $mensaje = is_array($resultado) ? $resultado['mensaje'] : $resultado;
+            echo '<div class="flux-notification flux-info"><div class="flux-notification-content"><h4>Resultado</h4><p>' . esc_html($mensaje) . '</p></div></div>';
         }
     }
 
@@ -167,7 +184,7 @@ function rss_admin_extractor_listado_tareas()
         if ($todas_tareas) {
             require_once plugin_dir_path(__FILE__) . '../core/rss-runner.php';
             foreach ($todas_tareas as $tarea) {
-                rss_admin_extractor_ejecutar_tarea($tarea);
+                rss_admin_extractor_ejecutar_tarea($tarea, true);
             }
             echo '<div class="flux-notification flux-info"><div class="flux-notification-content"><h4>Ejecución Finalizada</h4><p>Todas las tareas han sido procesadas.</p></div></div>';
         }
@@ -200,5 +217,12 @@ function rss_admin_extractor_gestion_fuentes()
     }
 
     $fuentes = $wpdb->get_results("SELECT * FROM $tabla_fuentes");
+
+    // Si no hay fuentes, intentar instalar/sembrar de nuevo
+    if (empty($fuentes)) {
+        rss_admin_extractor_instalar();
+        $fuentes = $wpdb->get_results("SELECT * FROM $tabla_fuentes");
+    }
+
     include plugin_dir_path(__FILE__) . 'vistas/gestion-fuentes.php';
 }
