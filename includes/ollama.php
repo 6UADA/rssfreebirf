@@ -23,15 +23,17 @@ function reescribir_titulo_con_ollama($titulo)
         "Título original: $titulo";
 
     $body = json_encode([
-        'model' => 'llama3',
+        'model' => 'mistral-large-latest',
         'messages' => [
             ['role' => 'user', 'content' => $prompt]
-        ],
-        'stream' => false
+        ]
     ]);
 
-    $response = wp_remote_post('https://lm.maxtres.org/v1/chat/completions', [
-        'headers' => ['Content-Type' => 'application/json'],
+    $response = wp_remote_post('https://api.mistral.ai/v1/chat/completions', [
+        'headers' => [
+            'Content-Type' => 'application/json',
+            'Authorization' => 'Bearer mJBPu2uPUp2SM2lJOa22rr6mYNoRBGzL'
+        ],
         'body' => $body,
         'timeout' => OLLAMA_TIMEOUT_TITULO
     ]);
@@ -70,15 +72,17 @@ function reescribir_contenido_con_ollama($contenido)
         "Texto original:\n$contenido_para_prompt";
 
     $body = json_encode([
-        'model' => 'llama3',
+        'model' => 'mistral-large-latest',
         'messages' => [
             ['role' => 'user', 'content' => $prompt]
-        ],
-        'stream' => false
+        ]
     ]);
 
-    $response = wp_remote_post('https://lm.maxtres.org/v1/chat/completions', [
-        'headers' => ['Content-Type' => 'application/json'],
+    $response = wp_remote_post('https://api.mistral.ai/v1/chat/completions', [
+        'headers' => [
+            'Content-Type' => 'application/json',
+            'Authorization' => 'Bearer mJBPu2uPUp2SM2lJOa22rr6mYNoRBGzL'
+        ],
         'body' => $body,
         'timeout' => OLLAMA_TIMEOUT_CONTENIDO
     ]);
