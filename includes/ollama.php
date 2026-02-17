@@ -19,6 +19,7 @@ if (!defined('OLLAMA_MAX_WORDS_INPUT'))
 function reescribir_titulo_con_ollama($titulo)
 {
     $prompt = "Reescribe el siguiente título periodístico para que sea más atractivo y profesional. " .
+        "No menciones nombres de periódicos, sitios web ni autores originales. " .
         "Devuelve únicamente el nuevo título, en español, sin comillas ni explicaciones.\n\n" .
         "Título original: $titulo";
 
@@ -66,6 +67,7 @@ function reescribir_contenido_con_ollama($contenido)
 
     $prompt = "Actúa como redactor periodístico profesional. Reescribe el siguiente texto en español (México/Iberoamérica), " .
         "con estilo claro, fluido y atractivo. Mantén la veracidad de los hechos. " .
+        "IMPORTANTE: Elimina cualquier mención al nombre del periódico original, autores, periodistas, firmas, agencias (como EFE, Reuters, etc.) o sitios web. " .
         "El texto final debe tener al menos 350 palabras. " .
         "No agregues títulos, subtítulos, firmas ni introducciones tipo 'Aquí tienes'. " .
         "Devuelve únicamente el texto final.\n\n" .

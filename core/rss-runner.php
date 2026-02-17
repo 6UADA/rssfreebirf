@@ -84,6 +84,11 @@ function rss_admin_extractor_ejecutar_tarea($tarea)
             continue;
         }
 
+        // Limpieza básica previa para ayudar a la IA (eliminamos firmas y nombres de periódicos comunes)
+        $catalog = 'Crónica|Noventagrados|Netnoticias|Excélsior|Forbes|Marca|Unánimo|Universal|Jornada|SDP|Infobae|EFE|Reuters';
+        $contenido_original = preg_replace('/(Con información de|Por|Escrito por|Fuente:|Redacción|' . $catalog . '):?.*?\n/i', '', $contenido_original);
+        $contenido_original = trim($contenido_original);
+
         // 🔥 REESCRITURA REAL
         error_log("[RSS RUNNER] Iniciando reescritura para: " . substr($titulo_original, 0, 40));
 
