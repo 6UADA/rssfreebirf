@@ -48,8 +48,8 @@ function reescribir_titulo_con_ollama($titulo)
 
     if (!empty($data['choices'][0]['message']['content'])) {
         $nuevo_titulo = trim($data['choices'][0]['message']['content']);
-        // Quitamos comillas si la IA las puso al principio y al final
-        return trim($nuevo_titulo, '"\' ');
+        // Limpieza profunda: quitamos asteriscos, comillas (normales y curvas) y espacios al inicio/final
+        return preg_replace('/^[\s\*"\'“”‘’]+|[\s\*"\'“”‘’]+$/u', '', $nuevo_titulo);
     }
 
     return $titulo;
