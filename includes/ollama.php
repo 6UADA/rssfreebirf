@@ -47,7 +47,9 @@ function reescribir_titulo_con_ollama($titulo)
     $data = json_decode(wp_remote_retrieve_body($response), true);
 
     if (!empty($data['choices'][0]['message']['content'])) {
-        return trim($data['choices'][0]['message']['content']);
+        $nuevo_titulo = trim($data['choices'][0]['message']['content']);
+        // Quitamos comillas si la IA las puso al principio y al final
+        return trim($nuevo_titulo, '"\' ');
     }
 
     return $titulo;
